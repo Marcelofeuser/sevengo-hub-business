@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "./db.js";
 import { requireAuth, requirePerfil } from "./middleware.js";
 import { canAccessEmpresa } from "./authorize.js";
+import { ah } from "./asyncHandler.js";
 
 interface ScopedResourceConfig {
   /** Nome da tabela e do path da rota (ex: "pops" -> /pops). */
@@ -42,7 +43,7 @@ export function createScopedRouter(config: ScopedResourceConfig): Router {
 
   // GET /<resource>?empresa_id=... — lista os registros de uma empresa.
   // Mesma forma que useEmpresaData.ts usava: sempre filtrado por empresa.
-  router.get(`/${resource}`, async (req, res) => {
+  router.get(`/${resource}`, ah(async (req, res) => {
     const perfil = req.perfil!;
     const empresaId = req.query.empresa_id as string | undefined;
     if (!empresaId) {
@@ -59,10 +60,15 @@ export function createScopedRouter(config: ScopedResourceConfig): Router {
       [empresaId],
     );
     res.json(rows);
-  });
+  }));
 
   // POST /<resource> — body precisa trazer empresa_id + os campos da tabela.
-  router.post(`/${resource}`, async (req, res) => {
+  // Só inclui no INSERT os campos que vieram no body (mesmo padrão do PATCH
+  // abaixo) — incluir todo `fields` com `?? null` forçava NULL em colunas
+  // com DEFAULT (ex: `concluido boolean NOT NULL DEFAULT false` em
+  // checklist_itens, `data timestamptz DEFAULT now()` em diagnosticos),
+  // violando NOT NULL ou perdendo o valor default.
+  router.post(`/${resource}`, ah(async (req, res) => {
     const perfil = req.perfil!;
     const body = req.body ?? {};
     const empresaId = body.empresa_id as string | undefined;
@@ -74,8 +80,14 @@ export function createScopedRouter(config: ScopedResourceConfig): Router {
       res.status(403).json({ error: "Sem acesso a essa empresa" });
       return;
     }
-    const cols = ["empresa_id", ...fields];
-    const values: unknown[] = [empresaId, ...fields.map((f) => body[f] ?? null)];
+    const cols = ["empresa_id"];
+    const values: unknown[] = [empresaId];
+    for (const f of fields) {
+      if (f in body) {
+        cols.push(f);
+        values.push(body[f]);
+      }
+    }
     if (autoUserField) {
       cols.push(autoUserField);
       values.push(perfil.id);
@@ -86,11 +98,11 @@ export function createScopedRouter(config: ScopedResourceConfig): Router {
       values,
     );
     res.status(201).json(rows[0]);
-  });
+  }));
 
   // PATCH /<resource>/:id — carrega a linha primeiro pra saber a empresa_id
   // dela antes de autorizar (o corpo não é confiável pra isso).
-  router.patch(`/${resource}/:id`, async (req, res) => {
+  router.patch(`/${resource}/:id`, ah(async (req, res) => {
     const perfil = req.perfil!;
     const { rows: existingRows } = await pool.query(
       `select empresa_id from ${resource} where id = $1`,
@@ -123,10 +135,10 @@ export function createScopedRouter(config: ScopedResourceConfig): Router {
       values,
     );
     res.json(rows[0]);
-  });
+  }));
 
   // DELETE /<resource>/:id
-  router.delete(`/${resource}/:id`, async (req, res) => {
+  router.delete(`/${resource}/:id`, ah(async (req, res) => {
     const perfil = req.perfil!;
     if (deleteRequiresConsultor && perfil.role !== "consultor") {
       res.status(403).json({ error: "Só consultor pode remover" });
@@ -146,7 +158,7 @@ export function createScopedRouter(config: ScopedResourceConfig): Router {
     }
     await pool.query(`delete from ${resource} where id = $1`, [req.params.id]);
     res.status(204).end();
-  });
+  }));
 
   return router;
 }

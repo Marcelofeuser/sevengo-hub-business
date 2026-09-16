@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { pool } from "./db.js";
 import { getSession } from "./session.js";
+import { ah } from "./asyncHandler.js";
 
 export interface Perfil {
   id: string;
@@ -20,7 +21,7 @@ declare global {
 }
 
 /** Exige uma sessão válida no auth service. Preenche req.userId. */
-export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+export const requireAuth = ah(async (req: Request, res: Response, next: NextFunction) => {
   const session = await getSession(req.header("authorization") ?? undefined);
   if (!session) {
     res.status(401).json({ error: "Sessão inválida ou ausente" });
@@ -28,7 +29,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
   req.userId = session.user.id;
   next();
-}
+});
 
 /**
  * Exige que o usuário autenticado já tenha um `perfil` (role + empresa_id)
@@ -36,7 +37,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  * provisionado por um consultor — não é um 404 genérico, é "aguardando
  * provisionamento".
  */
-export async function requirePerfil(req: Request, res: Response, next: NextFunction) {
+export const requirePerfil = ah(async (req: Request, res: Response, next: NextFunction) => {
   if (!req.userId) {
     res.status(401).json({ error: "Sessão inválida ou ausente" });
     return;
@@ -51,4 +52,4 @@ export async function requirePerfil(req: Request, res: Response, next: NextFunct
   }
   req.perfil = rows[0];
   next();
-}
+});

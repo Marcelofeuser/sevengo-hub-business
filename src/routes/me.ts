@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../middleware.js";
+import { ah } from "../asyncHandler.js";
 
 export const meRouter = Router();
 
 // GET /me — identidade + perfil (role/empresa) + lista de empresas visíveis.
 // Substitui o que o AuthContext.tsx do pitstop-consult fazia direto contra
 // o Supabase (fetchProfile + fetchEmpresas).
-meRouter.get("/me", requireAuth, async (req, res) => {
+meRouter.get("/me", requireAuth, ah(async (req, res) => {
   const { rows: perfilRows } = await pool.query(
     `select id, nome, role, empresa_id from perfis where id = $1`,
     [req.userId],
@@ -41,4 +42,4 @@ meRouter.get("/me", requireAuth, async (req, res) => {
     departamentos: permissoes.map((p) => p.department_id),
     empresas,
   });
-});
+}));
