@@ -5,6 +5,15 @@ import { requireAuth, requirePerfil } from "../middleware.js";
 import { ah } from "../asyncHandler.js";
 
 const AUTH_INTERNAL_URL = process.env.AUTH_INTERNAL_URL ?? "http://localhost:3000";
+// better-auth exige um header Origin em rotas que mudam estado (proteção
+// CSRF, validado contra o TRUSTED_ORIGINS do serviço auth) — como essa
+// chamada é server-to-server (business-api -> auth), não existe Origin de
+// navegador nenhum por padrão. Repassamos o Origin de quem chamou o
+// business-api (o frontend real, que precisa estar no TRUSTED_ORIGINS de
+// AMBOS os serviços pra logar direto); AUTH_FALLBACK_ORIGIN cobre chamada
+// sem navegador (script, Postman) contanto que esteja cadastrado como
+// trusted origin no auth também.
+const AUTH_FALLBACK_ORIGIN = process.env.AUTH_FALLBACK_ORIGIN;
 
 export const perfisRouter = Router();
 
@@ -78,9 +87,13 @@ perfisRouter.post("/perfis/convidar", ah(async (req, res) => {
 
   const senhaTemporaria = gerarSenhaTemporaria();
 
+  const origin = req.header("origin") ?? AUTH_FALLBACK_ORIGIN;
   const signupRes = await fetch(`${AUTH_INTERNAL_URL}/api/auth/sign-up/email`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(origin ? { Origin: origin } : {}),
+    },
     body: JSON.stringify({ email, password: senhaTemporaria, name: nome }),
   });
 

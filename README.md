@@ -39,6 +39,11 @@ própria `empresa_id`. Toda rota nova segue esse padrão (ver
   Railway (ex: `${{auth.RAILWAY_PRIVATE_DOMAIN}}` com a porta certa)
 - `TRUSTED_ORIGINS` — lista separada por vírgula dos domínios das frontends
   que vão consumir esta API
+- `AUTH_FALLBACK_ORIGIN` — Origin repassado pro `auth` service em
+  `POST /perfis/convidar` quando a chamada não tem um Origin de navegador
+  (script/Postman); precisa estar cadastrado no `TRUSTED_ORIGINS` do `auth`
+  também. Chamada de frontend real já manda seu próprio Origin, que é
+  repassado direto — isso é só um fallback.
 - `PORT` — porta do servidor (Railway injeta a sua própria)
 
 ## Comandos
