@@ -3,6 +3,7 @@ import cors from "cors";
 import "dotenv/config";
 import { meRouter } from "./routes/me.js";
 import { empresasRouter } from "./routes/empresas.js";
+import { resourcesRouter } from "./routes/resources.js";
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.get("/health", (_req, res) => {
 
 app.use(meRouter);
 app.use(empresasRouter);
+app.use(resourcesRouter);
 
 const port = Number(process.env.PORT ?? 3001);
 app.listen(port, () => {
