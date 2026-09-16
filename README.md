@@ -20,6 +20,19 @@ faziam: `role = 'consultor'` → acesso total; `role = 'cliente'` → só a
 própria `empresa_id`. Toda rota nova segue esse padrão (ver
 `src/routes/empresas.ts` como referência).
 
+## Endpoints
+- `GET /health`
+- `GET /me` — identidade + perfil + empresas visíveis do usuário autenticado
+- `GET /empresas`, `POST /empresas`, `GET /empresas/:id`, `PATCH /empresas/:id`
+- CRUD genérico (GET/POST/PATCH/DELETE) pras 12 tabelas empresa_id-scoped —
+  ver `src/routes/resources.ts`
+- `GET /perfis` — lista usuários já provisionados (só consultor)
+- `POST /perfis/convidar` — só consultor. Cria a conta no `auth` service
+  (não existe signup aberto — todo usuário é provisionado deliberadamente
+  por um consultor) e o `perfil` correspondente numa tacada só. Não há envio
+  de e-mail configurado ainda: a senha temporária volta na resposta pra o
+  consultor repassar manualmente; o cliente troca no primeiro acesso.
+
 ## Variáveis de ambiente (ver `.env.example`)
 - `DATABASE_URL` — no Railway, referenciar `${{Postgres.DATABASE_URL}}`
 - `AUTH_INTERNAL_URL` — URL interna do serviço `auth` na rede privada do

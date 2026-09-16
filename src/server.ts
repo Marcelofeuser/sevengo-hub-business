@@ -5,6 +5,7 @@ import "dotenv/config";
 import { meRouter } from "./routes/me.js";
 import { empresasRouter } from "./routes/empresas.js";
 import { resourcesRouter } from "./routes/resources.js";
+import { perfisRouter } from "./routes/perfis.js";
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.get("/health", (_req, res) => {
 app.use(meRouter);
 app.use(empresasRouter);
 app.use(resourcesRouter);
+app.use(perfisRouter);
 
 // Middleware de erro terminal do Express (assinatura de 4 args é o que faz
 // o Express reconhecer como error handler). Todo erro encaminhado por ah()
