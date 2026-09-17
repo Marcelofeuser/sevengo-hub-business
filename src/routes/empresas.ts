@@ -62,6 +62,69 @@ empresasRouter.get("/empresas/:id", ah(async (req, res) => {
   res.json(rows[0]);
 }));
 
+// Mesma lista de 12 tabelas empresa_id-scoped que resources.ts expõe —
+// mantida em paralelo aqui porque createScopedRouter não exporta a lista, e
+// duplicar 12 strings é mais simples/direto que reestruturar o módulo só
+// pra isso. Se uma tabela nova entrar em resources.ts, precisa entrar aqui
+// também (senão o DELETE de empresa deixa lixo órfão pra trás).
+const TABELAS_ESCOPADAS = [
+  "diagnosticos",
+  "checklist_itens",
+  "estoque_itens",
+  "lancamentos_financeiros",
+  "oficinas_parceiras",
+  "orcamentos",
+  "pops",
+  "plano_90_dias",
+  "contas_pagar",
+  "contas_receber",
+  "notas_fiscais",
+  "obrigacoes_fiscais",
+] as const;
+
+// DELETE /empresas/:id — só consultor. Cascata manual (schema não tem FK ON
+// DELETE CASCADE — corte limpo da migração não recriou essas constraints)
+// numa transação: apaga as 12 tabelas escopadas, depois os `perfis` de
+// clientes vinculados a essa empresa (perde sentido um perfil "cliente" sem
+// empresa — quem quiser manter a conta, usa desvincular em vez de excluir a
+// empresa), e por último a própria empresa. Não mexe na tabela `user` do
+// better-auth — a conta de login do cliente continua existindo, só perde o
+// vínculo com essa empresa (podendo ser reconvidado pra outra no futuro).
+empresasRouter.delete("/empresas/:id", ah(async (req, res) => {
+  const perfil = req.perfil!;
+  if (perfil.role !== "consultor") {
+    res.status(403).json({ error: "Só consultor pode excluir empresas" });
+    return;
+  }
+  const empresaId = req.params.id;
+
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    const { rows: empresaRows } = await client.query(`select id from empresas where id = $1 for update`, [empresaId]);
+    if (empresaRows.length === 0) {
+      await client.query("rollback");
+      res.status(404).json({ error: "Empresa não encontrada" });
+      return;
+    }
+
+    for (const tabela of TABELAS_ESCOPADAS) {
+      await client.query(`delete from ${tabela} where empresa_id = $1`, [empresaId]);
+    }
+    await client.query(`delete from perfis where empresa_id = $1`, [empresaId]);
+    await client.query(`delete from empresas where id = $1`, [empresaId]);
+
+    await client.query("commit");
+    res.status(204).end();
+  } catch (err) {
+    await client.query("rollback");
+    throw err;
+  } finally {
+    client.release();
+  }
+}));
+
 // PATCH /empresas/:id — só consultor edita (pesos do IDP, dados cadastrais).
 empresasRouter.patch("/empresas/:id", ah(async (req, res) => {
   const perfil = req.perfil!;

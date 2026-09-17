@@ -132,3 +132,37 @@ perfisRouter.post("/perfis/convidar", ah(async (req, res) => {
     aviso: "Repasse essa senha temporária ao usuário por um canal seguro — ela não fica salva em lugar nenhum e não é reenviada.",
   });
 }));
+
+// PATCH /perfis/:id/desvincular — só consultor. Remove o vínculo do
+// cliente com a empresa (empresa_id = null) SEM apagar o perfil nem a conta
+// better-auth — diferente do DELETE /empresas/:id, que remove o perfil
+// junto (lá a empresa toda deixou de existir; aqui só o vínculo). Deixa a
+// conta pronta pra ser reconvidada pra outra empresa depois. Só faz sentido
+// pra role='cliente' — um consultor nunca tem empresa_id.
+perfisRouter.patch("/perfis/:id/desvincular", ah(async (req, res) => {
+  const perfil = req.perfil!;
+  if (perfil.role !== "consultor") {
+    res.status(403).json({ error: "Só consultor pode desvincular usuários" });
+    return;
+  }
+
+  const { rows: alvoRows } = await pool.query(`select id, role from perfis where id = $1`, [req.params.id]);
+  if (alvoRows.length === 0) {
+    res.status(404).json({ error: "Perfil não encontrado" });
+    return;
+  }
+  if (alvoRows[0].role !== "cliente") {
+    res.status(400).json({ error: "Só é possível desvincular um perfil do tipo cliente" });
+    return;
+  }
+
+  const { rows } = await pool.query(
+    `update perfis set empresa_id = null where id = $1
+     returning perfis.id, perfis.nome, perfis.role, perfis.empresa_id`,
+    [req.params.id],
+  );
+
+  const { rows: userRows } = await pool.query(`select email from "user" where id = $1`, [req.params.id]);
+
+  res.json({ ...rows[0], email: userRows[0]?.email ?? null });
+}));
