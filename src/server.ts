@@ -6,6 +6,7 @@ import { meRouter } from "./routes/me.js";
 import { empresasRouter } from "./routes/empresas.js";
 import { resourcesRouter } from "./routes/resources.js";
 import { perfisRouter } from "./routes/perfis.js";
+import { fin360BridgeRouter } from "./routes/fin360Bridge.js";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use(meRouter);
 app.use(empresasRouter);
 app.use(resourcesRouter);
 app.use(perfisRouter);
+app.use(fin360BridgeRouter);
 
 // Middleware de erro terminal do Express (assinatura de 4 args é o que faz
 // o Express reconhecer como error handler). Todo erro encaminhado por ah()

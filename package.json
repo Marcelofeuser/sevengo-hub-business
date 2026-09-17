@@ -11,6 +11,7 @@
     "db:migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.103.0",
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
